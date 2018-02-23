@@ -15,11 +15,11 @@ from flask_sqlalchemy import SQLAlchemy
 # Application configurations
 ############################
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hard to guess string from si364'
+app.config['SECRET_KEY'] = 'hardtoguessstringfromsi364thisisnotsupersecurebutitsok'
 ## TODO 364: Create a database in postgresql in the code line below, and fill in your app's database URI. It should be of the format: postgresql://localhost/YOUR_DATABASE_NAME
 
 ## Your final Postgres database should be your uniqname, plus HW3, e.g. "jczettaHW3" or "maupandeHW3"
-app.config["SQLALCHEMY_DATABASE_URI"] = ""
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://localhost/hongjisuHW3"
 ## Provided:
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -27,7 +27,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 ##################
 ### App setup ####
 ##################
-db = SQLAlchemy(app) # For database use
+
+# Set up Flask debug stuff
+manager = Manager(app)
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+manager.add_command('db', MigrateCommand) # Add migrate command to manager
 
 
 #########################
@@ -43,6 +48,27 @@ db = SQLAlchemy(app) # For database use
 
 ## TODO 364: Set up the following Model classes, as described, with the respective fields (data types).
 
+
+class Tweet(db.Model):
+    __tablename__ = 'tweets'
+    tweetId = db.Column(db.Integer, primary_key=True)
+    tweetText = db.Column(db.String(280))
+    userId = db.Column(db.Integer, db.ForeignKey('users.userId'))
+    
+    def __repr__(self):
+        return "Tweet {} (ID: {})".format(self.tweetText,self.userId)
+
+class User(db.Model):
+    __tablename__ = 'users'
+    userId = db.Column(db.Integer, primary_key=True)
+    userName = db.Column(db.String(64),unique=True)
+    displayName = db.Column(db.String(124))
+    tweets = db.relationship('Tweet',backref='User')
+
+
+    def __repr__(self):
+        return "{} | ID: {}".format(self.userName,self.userId)
+
 ## The following relationships should exist between them:
 # Tweet:User - Many:One
 
@@ -53,7 +79,6 @@ db = SQLAlchemy(app) # For database use
 
 ## Should have a __repr__ method that returns strings of a format like:
 #### {Tweet text...} (ID: {tweet id})
-
 
 # - User
 ## -- id (Integer, Primary Key)
@@ -69,6 +94,13 @@ db = SQLAlchemy(app) # For database use
 ##### Set up Forms #####
 ########################
 
+class tweetForm(FlaskForm):
+    form_text = StringField('Enter the text of the tweet (no more than 280 chars):', validators=[Required()])
+    form_username = StringField('Enter the username of the twitter user (no "@"!):', validators=[Required()])
+    form_display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', validators=[Required()])
+
+    submit = SubmitField('Submit')
+
 # TODO 364: Fill in the rest of the below Form class so that someone running this web app will be able to fill in information about tweets they wish existed to save in the database:
 
 ## -- text: tweet text (Required, should not be more than 280 characters)
@@ -77,9 +109,36 @@ db = SQLAlchemy(app) # For database use
 
 # HINT: Check out index.html where the form will be rendered to decide what field names to use in the form class definition
 
+
+
 # TODO 364: Set up custom validation for this form such that:
 # - the twitter username may NOT start with an "@" symbol (the template will put that in where it should appear)
 # - the display name MUST be at least 2 words (this is a useful technique to practice, even though this is not true of everyone's actual full name!)
+
+
+##### Helper functions
+### For database additions / get_or_create functions
+def get_or_create_tweet(db_session, tweetText_in, userId_in):
+    tweet = db_session.query(Tweet).filter_by(tweetText=tweetText_in,userId=userId_in).first()
+    if tweet:
+        return tweet
+    else:
+        tweet = Tweet(tweetText=tweetText_in, userId=userId_in)
+        db_session.add(tweet)
+        db_session.commit()
+        return tweet
+
+def get_or_create_user(db_session, userName_in, displayName_in):
+    user = db_session.query(User).filter_by(userName=userName_in).first()
+    if user:
+        return user
+    else:
+        user = User(userName=userName_in,displayName=displayName_in)
+        db_session.add(user)
+        db_session.commit()
+        return user
+
+
 
 # TODO 364: Make sure to check out the sample application linked in the readme to check if yours is like it!
 
@@ -118,6 +177,16 @@ def internal_server_error(e):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # Initialize the form
+    form = tweetForm()
+    if form.validate_on_submit():
+        text = form.text.data
+        username = form.username.data
+        display_name = form.display_name.data
+        user = get_or_create_user(db.session, username, display_name)
+        get_or_create_tweet(db.session, text, user.userId)
+    return render_template("index.html", form = form)
+    
+    #return redirect(url_for('get_movies'))
 
     # Get the number of Tweets
 
@@ -145,7 +214,13 @@ def index():
 
 @app.route('/all_tweets')
 def see_all_tweets():
-    pass # Replace with code
+    all_tweets = [] # To be tuple list of title, genre
+    tweets = Tweet.query.all()
+    for s in tweets:
+        user = User.query.filter_by(userId=s.userId).first()
+        all_tweets.append((s.tweetText,user.userName))
+    return render_template('all_tweets.html',all_tweets=all_tweets)
+    # Replace with code
     # TODO 364: Fill in this view function so that it can successfully render the template all_tweets.html, which is provided.
     # HINT: Careful about what type the templating in all_tweets.html is expecting! It's a list of... not lists, but...
     # HINT #2: You'll have to make a query for the tweet and, based on that, another query for the username that goes with it...
@@ -153,7 +228,12 @@ def see_all_tweets():
 
 @app.route('/all_users')
 def see_all_users():
-    pass # Replace with code
+    all_users = [] # To be tuple list of title, genre
+    users = User.query.all()
+    for s in users:
+        all_users.append((s.userName,s.displayName))
+    return render_template('all_users.html',all_users=all_users)
+    # Replace with code
     # TODO 364: Fill in this view function so it can successfully render the template all_users.html, which is provided.
 
 # TODO 364
