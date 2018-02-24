@@ -6,10 +6,12 @@
 ####################
 
 from flask import Flask, render_template, session, redirect, url_for, flash, request
+from flask_script import Manager, Shell
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, ValidationError
 from wtforms.validators import Required, Length
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate, MigrateCommand
 
 ############################
 # Application configurations
@@ -95,9 +97,9 @@ class User(db.Model):
 ########################
 
 class tweetForm(FlaskForm):
-    form_text = StringField('Enter the text of the tweet (no more than 280 chars):', validators=[Required()])
-    form_username = StringField('Enter the username of the twitter user (no "@"!):', validators=[Required()])
-    form_display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', validators=[Required()])
+    text = StringField('Enter the text of the tweet (no more than 280 chars):', validators=[Required()])
+    username = StringField('Enter the username of the twitter user (no "@"!):', validators=[Required()])
+    display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', validators=[Required()])
 
     submit = SubmitField('Submit')
 
