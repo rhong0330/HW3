@@ -105,7 +105,7 @@ class tweetForm(FlaskForm):
                                     validators.DataRequired(message="username cannot be blank")
                                     ])
     display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', [
-                                   validators.Regexp('[^\s]+[\s]+[^\s]+.*', message="displayname must be at least 2 words"),
+                                   validators.Regexp('.*[^\s]+[\s]+[^\s]+.*', message="displayname must be at least 2 words"),
                                    validators.DataRequired(message="displayname cannot be blank")
                                    ])
 
@@ -149,6 +149,12 @@ def get_or_create_user(db_session, userName_in, displayName_in):
         return user
 
 
+def sortTweet(text_in):
+    score = 0
+    for t in text_in:
+        if t != ' ':
+            score +=1
+    return score
 
 # DONE 364: Make sure to check out the sample application linked in the readme to check if yours is like it!
 
@@ -250,10 +256,32 @@ def see_all_users():
     # DONE 364: Fill in this view function so it can successfully render the template all_users.html, which is provided.
 
 
+
+
 @app.route('/longest_tweet')
 def get_longest_tweet():
-    
-    return render_template('longest_tweet.html')
+    longest_tweet = []
+    tweets = Tweet.query.all()
+    longest_tweet.append(tweets[0])
+    for s in tweets:
+        a = sortTweet(s.tweetText)
+        b = sortTweet(longest_tweet[0].tweetText)
+        if a>b:
+            longest_tweet = []
+            longest_tweet.append(s)
+        elif sortTweet(s.tweetText) == sortTweet(longest_tweet[0].tweetText):
+            list = []
+            list.append(s.tweetText)
+            list.append(longest_tweet[0].tweetText)
+            list.sort()
+            if list[1] == s.tweetText:
+                longest_tweet = []
+                longest_tweet.append(s)
+
+
+    user = User.query.filter_by(userId=s.userId).first()
+    username = user.userName
+    return render_template('longest_tweet.html', tweetText = longest_tweet[0].tweetText, username=username)
 # TODO 364
 # Create another route (no scaffolding provided) at /longest_tweet with a view function get_longest_tweet (see details below for what it should do)
 # TODO 364
