@@ -8,7 +8,7 @@
 from flask import Flask, render_template, session, redirect, url_for, flash, request
 from flask_script import Manager, Shell
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, ValidationError
+from wtforms import StringField, SubmitField, ValidationError, validators
 from wtforms.validators import Required, Length
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, MigrateCommand
@@ -18,9 +18,9 @@ from flask_migrate import Migrate, MigrateCommand
 ############################
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hardtoguessstringfromsi364thisisnotsupersecurebutitsok'
-## TODO 364: Create a database in postgresql in the code line below, and fill in your app's database URI. It should be of the format: postgresql://localhost/YOUR_DATABASE_NAME
+## DONE 364: Create a database in postgresql in the code line below, and fill in your app's database URI. It should be of the format: postgresql://localhost/YOUR_DATABASE_NAME
 
-## Your final Postgres database should be your uniqname, plus HW3, e.g. "jczettaHW3" or "maupandeHW3"
+## DONE Your final Postgres database should be your uniqname, plus HW3, e.g. "jczettaHW3" or "maupandeHW3"
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://localhost/hongjisuHW3"
 ## Provided:
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
@@ -48,7 +48,7 @@ manager.add_command('db', MigrateCommand) # Add migrate command to manager
 ##### Set up Models #####
 #########################
 
-## TODO 364: Set up the following Model classes, as described, with the respective fields (data types).
+## DONE 364: Set up the following Model classes, as described, with the respective fields (data types).
 
 
 class Tweet(db.Model):
@@ -96,14 +96,22 @@ class User(db.Model):
 ##### Set up Forms #####
 ########################
 
+
 class tweetForm(FlaskForm):
-    text = StringField('Enter the text of the tweet (no more than 280 chars):', validators=[Required()])
-    username = StringField('Enter the username of the twitter user (no "@"!):', validators=[Required()])
-    display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', validators=[Required()])
+    text = StringField('Enter the text of the tweet (no more than 280 chars):', [validators.DataRequired(message="text field cannot be blank"), validators.Length(max=280, message= "text must not exceed 280")])
+    username = StringField('Enter the username of the twitter user (no "@"!):', [
+                                    validators.Regexp('^[^@]+$', message="Username must not contain @"),
+                                    validators.Length(max=64, message="Username must be at most 64"),
+                                    validators.DataRequired(message="username cannot be blank")
+                                    ])
+    display_name = StringField('Enter the display name for the twitter user (must be at least 2 words):', [
+                                   validators.Regexp('[^\s]+[\s]+[^\s]+.*', message="displayname must be at least 2 words"),
+                                   validators.DataRequired(message="displayname cannot be blank")
+                                   ])
 
     submit = SubmitField('Submit')
 
-# TODO 364: Fill in the rest of the below Form class so that someone running this web app will be able to fill in information about tweets they wish existed to save in the database:
+# DONE 364: Fill in the rest of the below Form class so that someone running this web app will be able to fill in information about tweets they wish existed to save in the database:
 
 ## -- text: tweet text (Required, should not be more than 280 characters)
 ## -- username: the twitter username who should post it (Required, should not be more than 64 characters)
@@ -128,7 +136,7 @@ def get_or_create_tweet(db_session, tweetText_in, userId_in):
         tweet = Tweet(tweetText=tweetText_in, userId=userId_in)
         db_session.add(tweet)
         db_session.commit()
-        return tweet
+        flash("tweet succesfully added")
 
 def get_or_create_user(db_session, userName_in, displayName_in):
     user = db_session.query(User).filter_by(userName=userName_in).first()
@@ -142,7 +150,7 @@ def get_or_create_user(db_session, userName_in, displayName_in):
 
 
 
-# TODO 364: Make sure to check out the sample application linked in the readme to check if yours is like it!
+# DONE 364: Make sure to check out the sample application linked in the readme to check if yours is like it!
 
 
 ###################################
@@ -163,7 +171,7 @@ def internal_server_error(e):
 ## Main route
 #############
 
-## TODO 364: Fill in the index route as described.
+## DONE 364: Fill in the index route as described.
 
 # A template index.html has been created and provided to render what this route needs to show -- YOU just need to fill in this view function so it will work.
 # Some code already exists at the end of this view function -- but there's a bunch to be filled in.
@@ -185,11 +193,13 @@ def index():
         username = form.username.data
         display_name = form.display_name.data
         user = get_or_create_user(db.session, username, display_name)
-        get_or_create_tweet(db.session, text, user.userId)
-    return render_template("index.html", form = form)
-    
-    #return redirect(url_for('get_movies'))
+        tweet = get_or_create_tweet(db.session, text, user.userId)
+        if tweet:
+            flash("you've already saved a tweet like that")
+            return redirect(url_for('see_all_tweets'))
 
+
+    
     # Get the number of Tweets
 
     # If the form was posted to this route,
@@ -212,7 +222,8 @@ def index():
     errors = [v for v in form.errors.values()]
     if len(errors) > 0:
         flash("!!!! ERRORS IN FORM SUBMISSION - " + str(errors))
-    return render_template('index.html',) # TODO 364: Add more arguments to the render_template invocation to send data to index.html
+    num_tweets = len(Tweet.query.all())
+    return render_template("index.html", form = form, num_tweets=num_tweets) # DONE 364: Add more arguments to the render_template invocation to send data to index.html
 
 @app.route('/all_tweets')
 def see_all_tweets():
@@ -223,7 +234,7 @@ def see_all_tweets():
         all_tweets.append((s.tweetText,user.userName))
     return render_template('all_tweets.html',all_tweets=all_tweets)
     # Replace with code
-    # TODO 364: Fill in this view function so that it can successfully render the template all_tweets.html, which is provided.
+    # DONE 364: Fill in this view function so that it can successfully render the template all_tweets.html, which is provided.
     # HINT: Careful about what type the templating in all_tweets.html is expecting! It's a list of... not lists, but...
     # HINT #2: You'll have to make a query for the tweet and, based on that, another query for the username that goes with it...
 
@@ -236,8 +247,13 @@ def see_all_users():
         all_users.append((s.userName,s.displayName))
     return render_template('all_users.html',all_users=all_users)
     # Replace with code
-    # TODO 364: Fill in this view function so it can successfully render the template all_users.html, which is provided.
+    # DONE 364: Fill in this view function so it can successfully render the template all_users.html, which is provided.
 
+
+@app.route('/longest_tweet')
+def get_longest_tweet():
+    
+    return render_template('longest_tweet.html')
 # TODO 364
 # Create another route (no scaffolding provided) at /longest_tweet with a view function get_longest_tweet (see details below for what it should do)
 # TODO 364

@@ -2,12 +2,12 @@
 
 {% block content %}
 <ul>
-{% for nm in users %}
-  <li>{{ nm.username }} -- <i>{{ nm.display_name }}</i></li><br>
+{% for nm in all_users %}
+  <li>{{ nm[0] }} -- <i>{{ nm[1] }}</i></li><br>
 {% endfor %}
 </ul>
 
-{% if not users %}
+{% if not all_users %}
     There are no users to show.
 {% endif %}
 
